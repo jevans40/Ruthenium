@@ -208,7 +208,7 @@ func TestAllocationTree(t *testing.T) {
 }
 
 func Run2(EntityCreation chan EntityCreationData, EntityDeletion chan component.EntityID) (err error) {
-	EntityCreation <- EntityCreationData{10, make(chan component.EntityID, 10)}
+	EntityCreation <- EntityCreationData{10, []StorageWriteable{}, make(chan component.EntityID, 10)}
 	return err
 }
 

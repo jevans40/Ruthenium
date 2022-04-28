@@ -11,6 +11,9 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+//TODO: All of these need to be placed somewhere else. Putting them in the header of the service was a temporary
+//work around, but now that other classes are using this we need to move them to a reasonable spot.
+
 const (
 	WriteAccess AccessType = iota
 	ReadAccess
@@ -18,11 +21,31 @@ const (
 
 type AccessType int
 
-type EntityCreationData struct {
-	numEntities             int
-	createdEntitiesCallback chan component.EntityID
+type StorageWriteable interface {
+	AddComponentWithEntityID(component.EntityID)
 }
 
+//This function is here because golang doesnt allow Generic Methods ;_;
+func MakeWritableStorage[T component.Component](NewComponent T, writeableStorage component.WriteStorage[T]) StorageWriteable {
+	return &ComponentWriteDate[T]{NewComponent, writeableStorage}
+}
+
+type ComponentWriteDate[T component.Component] struct {
+	component T
+	storage   component.WriteStorage[T]
+}
+
+func (c *ComponentWriteDate[T]) AddComponentWithEntityID(ID component.EntityID) {
+	c.storage.AddEntity(ID, c.component)
+}
+
+type EntityCreationData struct {
+	NumEntities             int
+	Components              []StorageWriteable
+	CreatedEntitiesCallback chan component.EntityID
+}
+
+//TODO:
 //REFACTOR:
 //EntityCreation: signals on this channel will request entities to be made lazily
 //				  The dispatcher should close this included channel and not block if the
@@ -139,7 +162,7 @@ func (s *BaseService) StartService(Callback chan error) {
 		if err != nil {
 			return
 		}
-		fmt.Println(fmt.Sprintf("Got a signal for service %s", s.Name))
+		fmt.Printf("got a signal for service %s\n", s.Name)
 		s.SleepLock.Lock()
 		s.StorageLock.Lock()
 		err = s.runFunc(updateStruct.EntityCreation, updateStruct.EntityDeletion)
@@ -200,7 +223,7 @@ func (s *BaseService) UpdateStoragePointers(data []component.ComponentStorage) e
 			}
 		}
 		if !found {
-			return errors.New(fmt.Sprintf("Missing Required Datatype %s", v.DataType))
+			return fmt.Errorf("missing Required Datatype %s", v.DataType)
 		}
 	}
 	return nil
@@ -233,7 +256,7 @@ func (s *BaseService) AddRequiredAccessComponent(newComp ComponentAccess) error 
 	defer s.StorageLock.Unlock()
 	for _, v := range s.requiredData {
 		if v.DataType == newComp.DataType {
-			return errors.New("Component type already exists for this service, unable to add duplicate type")
+			return errors.New("component type already exists for this service, unable to add duplicate type")
 		}
 	}
 	s.requiredData = append(s.requiredData, newComp)
@@ -269,10 +292,10 @@ func (s *BaseService) GetStorage(storageType reflect.Type) (component.ComponentS
 func GetWriteStorage[T component.Component](this Service) (component.WriteStorage[T], error) {
 	storage, access := this.GetStorage(component.ReflectType[T]())
 	if access != WriteAccess {
-		return nil, errors.New("Component accessType is not write")
+		return nil, errors.New("component accessType is not write")
 	}
 	if storage == nil {
-		return nil, errors.New("Component storage is not found in this service")
+		return nil, errors.New("component storage is not found in this service")
 	}
 	return component.GetWriteStorage[T](storage)
 }
@@ -280,11 +303,11 @@ func GetWriteStorage[T component.Component](this Service) (component.WriteStorag
 func GetReadStorage[T component.Component](this Service) (component.ReadOnlyStorage[T], error) {
 	storage, access := this.GetStorage(component.ReflectType[T]())
 	if access != ReadAccess {
-		log.WithFields(log.Fields{"accessType": access, "Expected": ReadAccess}).Error("Incompatible accessType")
-		return nil, errors.New("Component accessType is not write")
+		log.WithFields(log.Fields{"accessType": access, "Expected": ReadAccess}).Error("incompatible accessType")
+		return nil, errors.New("component accessType is not write")
 	}
 	if storage == nil {
-		return nil, errors.New("Component storage is not found in this service")
+		return nil, errors.New("component storage is not found in this service")
 	}
 	return component.GetReadOnlyStorage[T](storage)
 }

@@ -46,22 +46,22 @@ func (r *renderService) RenderRun(EntityCreation chan EntityCreationData, Entity
 	}
 
 	for i := range Entities {
-		calculateVerticie(Transforms[i], Sprites[i], RenderVec[i*28:i*28+28])
+		calculateVertices(Transforms[i], Sprites[i], RenderVec[i*28:i*28+28])
 	}
 
 	select {
 	case r.renderChan <- RenderVec:
 	default:
-		return errors.New("Render channel full, render failed")
+		return errors.New("render channel full, render failed")
 	}
 	return nil
 
 }
 
-func calculateVerticie(transform Transform, sprite Sprite, vector []float32) {
+func calculateVertices(transform Transform, sprite Sprite, vector []float32) {
 
 	vert := make([]linmath.Vertice, 4)
-	for i, _ := range vert {
+	for i := range vert {
 		vert[i] = linmath.EmptyVertice()
 	}
 

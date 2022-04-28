@@ -72,7 +72,8 @@ type simpleDispatcher struct {
 	entityDeletions chan component.EntityID
 
 	//Mutex
-	entityWrite sync.Mutex
+	entityWrite     sync.Mutex
+	entityProcessed sync.WaitGroup
 }
 
 func NewSimpleDispatcher() Dispatcher {
@@ -89,6 +90,7 @@ func (d *simpleDispatcher) Maintain() error {
 		d.StartServices()
 	}
 
+	d.entityProcessed.Add(2)
 	if ruthutil.IsChannelClosed(d.entityCreations) {
 		d.entityCreations = make(chan EntityCreationData)
 	}
@@ -135,7 +137,7 @@ func (d *simpleDispatcher) Maintain() error {
 					}
 					s.UpdateStoragePointers(toUpdate)
 					comChannels[i] <- updateSignal{d.entityCreations, d.entityDeletions}
-					fmt.Printf("Sent for service %s \n", s.GetName())
+					fmt.Printf("sent for service %s \n", s.GetName())
 				}
 
 			}
@@ -156,6 +158,24 @@ func (d *simpleDispatcher) Maintain() error {
 
 	close(d.entityCreations)
 	close(d.entityDeletions)
+	d.entityProcessed.Wait()
+
+	//TODO: Optimization: So this should be reformatted to create a smarter deletion process. This is a time consuming part of the update loop,
+	//But this is the first thing I thought of.
+	var toRemove []component.EntityID
+	for i, entity := range d.entities {
+		if entity.Deleted == true {
+
+			for _, storage := range d.storages {
+				storage.DeleteEntity(entity.EntityNum)
+			}
+			toRemove = append(toRemove, i)
+		}
+	}
+
+	for _, i := range toRemove {
+		delete(d.entities, i)
+	}
 
 	return nil
 }
@@ -164,7 +184,7 @@ func (d *simpleDispatcher) AddService(newService Service) error {
 	thisName := newService.GetName()
 	for _, s := range d.services {
 		if thisName == s.GetName() {
-			return errors.New("Service already exists in this Dispatcher")
+			return errors.New("service already exists in this Dispatcher")
 		}
 	}
 	d.services = append(d.services, newService)
@@ -176,7 +196,7 @@ func (d *simpleDispatcher) AddStorage(newStorage component.ComponentStorage) err
 	val := newStorage.GetType()
 	for _, v := range d.storages {
 		if v.GetType() == val {
-			return errors.New("Component type already exists in this Dispatcher")
+			return errors.New("component type already exists in this Dispatcher")
 		}
 	}
 	d.storages = append(d.storages, newStorage)
@@ -190,7 +210,7 @@ func (d *simpleDispatcher) RemoveService(name string) error {
 			return nil
 		}
 	}
-	return errors.New("Service not found in this Dispatcher")
+	return errors.New("service not found in this Dispatcher")
 }
 
 func (d *simpleDispatcher) RemoveStorage(thisType reflect.Type) error {
@@ -200,12 +220,12 @@ func (d *simpleDispatcher) RemoveStorage(thisType reflect.Type) error {
 			return nil
 		}
 	}
-	return errors.New("Storage not found in this Dispatcher")
+	return errors.New("storage not found in this Dispatcher")
 }
 
 func (d *simpleDispatcher) StartServices() error {
 	if d.running {
-		return errors.New("Service already running")
+		return errors.New("service already running")
 	}
 	d.running = true
 	for _, s := range d.services {
@@ -213,14 +233,14 @@ func (d *simpleDispatcher) StartServices() error {
 	}
 	//Ensure that all services are ready before moving on
 	for i := 0; i < len(d.services); i++ {
-		_ = <-d.errorChannel
+		<-d.errorChannel
 	}
 	return nil
 }
 
 func (d *simpleDispatcher) StopServices() error {
 	if d.running {
-		return errors.New("Services already stopped")
+		return errors.New("services already stopped")
 	}
 	d.running = false
 	for _, s := range d.services {
@@ -233,34 +253,40 @@ func (d *simpleDispatcher) StopServices() error {
 //Will set a writeEntity mutex lock.
 func (d *simpleDispatcher) startEntityCreationService() {
 	var toAdd []int
+	var toAddComp [][]StorageWriteable
 	var channels []chan component.EntityID
 	for {
 		ent, err := ruthutil.WaitChannel(d.entityCreations)
 		if err != nil {
 			break
 		}
-		if ent.numEntities < 0 {
+		if ent.NumEntities < 0 {
 			continue
 		}
-		toAdd = append(toAdd, ent.numEntities)
-		channels = append(channels, ent.createdEntitiesCallback)
+		toAdd = append(toAdd, ent.NumEntities)
+		toAddComp = append(toAddComp, ent.Components)
+		channels = append(channels, ent.CreatedEntitiesCallback)
 	}
 	d.entityWrite.Lock()
 	for i, v := range channels {
 		for j := 0; j < toAdd[i]; j++ {
 			newID := component.EntityID(d.entityNum)
 			d.entities[newID] = component.Entity{newID, false}
+			for _, k := range toAddComp[i] {
+				k.AddComponentWithEntityID(newID)
+			}
 			select {
 
 			case v <- newID:
 
 			default:
-				log.Info("Attempted to send an entity to a full channel")
+				log.Info("attempted to send an entity to a full channel")
 			}
 			d.entityNum++
 		}
 	}
 	d.entityWrite.Unlock()
+	d.entityProcessed.Done()
 }
 
 //TODO: Add a lazy Componnent Addition/Deletion Service
@@ -280,9 +306,10 @@ func (d *simpleDispatcher) startEntityDeletionService() {
 	}
 	d.entityWrite.Lock()
 	for _, v := range toDelete {
-		delete(d.entities, v)
+		d.entities[v] = component.Entity{d.entities[v].EntityNum, true}
 	}
 	d.entityWrite.Unlock()
+	d.entityProcessed.Done()
 }
 
 /***************************/
@@ -382,7 +409,7 @@ func (g *greedyAllocationTree) AddStystems(systems []string, resources [][]Compo
 			return nil
 		}
 	}
-	return errors.New("Found a cycle within the allocation tree allocation failed")
+	return errors.New("found a cycle within the allocation tree allocation failed")
 
 }
 

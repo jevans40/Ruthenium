@@ -112,7 +112,7 @@ func (g *gameECS) render() {
 
 	//Log Debug Info to the console
 	version := gl.GoStr(gl.GetString(gl.VERSION))
-	log.Info("Starting the Psychic-Spork game engine!")
+	log.Info("Starting the Rutherium game engine!")
 	log.WithFields(log.Fields{"OpenGL version:": version}).Info()
 
 	var nrAttributes int32
