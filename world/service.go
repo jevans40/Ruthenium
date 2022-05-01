@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/jevans40/Ruthenium/component"
+	"github.com/jevans40/Ruthenium/constants"
 	"github.com/jevans40/Ruthenium/ruthutil"
 	log "github.com/sirupsen/logrus"
 )
@@ -26,7 +27,7 @@ type StorageWriteable interface {
 }
 
 //This function is here because golang doesnt allow Generic Methods ;_;
-func MakeWritableStorage[T component.Component](NewComponent T, writeableStorage component.WriteStorage[T]) StorageWriteable {
+func MakeWriteableStorage[T component.Component](NewComponent T, writeableStorage component.WriteStorage[T]) StorageWriteable {
 	return &ComponentWriteDate[T]{NewComponent, writeableStorage}
 }
 
@@ -72,7 +73,7 @@ type Service interface {
 	//To stop the service simply close the associated channel
 	//Channel descriptions:
 	//Callback: this service will report any encountered errors to Callback every iteration |Blocking|
-	StartService(Callback chan error)
+	StartService(Callback chan error, update updateSignal)
 
 	//Return required datatypes for this service
 	GetStorages() []ComponentAccess
@@ -120,7 +121,7 @@ type Service interface {
 }
 
 func NewBaseService(name string) Service {
-	toReturn := &BaseService{Name: name, communicationChannel: make(chan updateSignal), sleepTime: 0}
+	toReturn := &BaseService{Name: name, communicationChannel: make(chan updateSignal, 100*constants.RACECHANNELSIZETEST), sleepTime: 0}
 	toReturn.SetRunFunction(toReturn.Run)
 
 	return toReturn
@@ -154,22 +155,16 @@ type BaseService struct {
 //         		  channel buffer is too small to fit all the requested entities
 //				  Form (NumEntities to make, Channel to receive entity ID's from later)
 //EntityDeletion: signals on this channel will tell the dispatcher to lazily delete requested entities
-func (s *BaseService) StartService(Callback chan error) {
+func (s *BaseService) StartService(Callback chan error, update updateSignal) {
 	s.GetChannel()
-	Callback <- nil
-	for {
-		updateStruct, err := ruthutil.WaitChannel(s.communicationChannel)
-		if err != nil {
-			return
-		}
-		fmt.Printf("got a signal for service %s\n", s.Name)
-		s.SleepLock.Lock()
-		s.StorageLock.Lock()
-		err = s.runFunc(updateStruct.EntityCreation, updateStruct.EntityDeletion)
-		Callback <- err
-		s.SleepLock.Unlock()
-		s.StorageLock.Unlock()
-	}
+	//fmt.Printf("got a signal for service %s\n", s.Name)
+	s.SleepLock.Lock()
+	s.StorageLock.Lock()
+	err := s.runFunc(update.EntityCreation, update.EntityDeletion)
+	Callback <- err
+	s.SleepLock.Unlock()
+	s.StorageLock.Unlock()
+
 }
 
 //TODO: This function should accept component Creation and Deletion Events
@@ -203,7 +198,7 @@ func (s *BaseService) GetChannel() chan updateSignal {
 	s.ComLock.Lock()
 	defer s.ComLock.Unlock()
 	if ruthutil.IsChannelClosed(s.communicationChannel) || s.communicationChannel == nil {
-		s.communicationChannel = make(chan updateSignal)
+		s.communicationChannel = make(chan updateSignal, 100*constants.RACECHANNELSIZETEST)
 	}
 	return s.communicationChannel
 }
@@ -216,6 +211,7 @@ func (s *BaseService) UpdateStoragePointers(data []component.ComponentStorage) e
 		tofind := v.DataType
 		found := false
 		for _, t := range data {
+			fmt.Println(&t)
 			if t.GetType() == tofind {
 				s.dataPointers[i] = t
 				found = true

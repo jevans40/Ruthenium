@@ -12,20 +12,20 @@ type EntityBuilder struct {
 }
 
 func NewEntityBuilder(Entity chan world.EntityCreationData) EntityBuilder {
-	return EntityBuilder{callback: Entity}
+	return EntityBuilder{callback: Entity, numberOfEntities: 1}
 }
 
-func (e *EntityBuilder) AddComponent(NewComp world.StorageWriteable) *EntityBuilder {
+func (e EntityBuilder) AddComponent(NewComp world.StorageWriteable) EntityBuilder {
 	e.data = append(e.data, NewComp)
 	return e
 }
 
-func (e *EntityBuilder) SetNumber(numberOfEntities int) *EntityBuilder {
+func (e EntityBuilder) SetNumber(numberOfEntities int) EntityBuilder {
 	e.numberOfEntities = numberOfEntities
 	return e
 }
 
-func (e *EntityBuilder) Build() chan component.EntityID {
+func (e EntityBuilder) Build() chan component.EntityID {
 	callback := make(chan component.EntityID, e.numberOfEntities)
 	e.callback <- world.EntityCreationData{e.numberOfEntities, e.data, callback}
 	return callback

@@ -28,7 +28,7 @@ type Game interface {
 	Start()
 
 	//Add a world layer to the layerspace.
-	AddWorld(*world.World) (worldID int, err error)
+	AddWorld(*world.WorldHandler) (worldID int, err error)
 
 	//Remove a layer from the layerspace.
 	RemoveWorld(worldID int) error
@@ -39,7 +39,7 @@ type Game interface {
 
 type gameECS struct {
 	window     *render.GoWindow
-	worlds     []*world.World
+	worlds     []*world.WorldHandler
 	renderchan chan []float32
 }
 
@@ -54,7 +54,7 @@ func (g *gameECS) Init() error {
 	return nil
 }
 
-func (g *gameECS) AddWorld(world *world.World) (worldID int, err error) {
+func (g *gameECS) AddWorld(world *world.WorldHandler) (worldID int, err error) {
 	g.worlds = append(g.worlds, world)
 	return len(g.worlds), nil
 }

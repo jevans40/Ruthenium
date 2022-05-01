@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
+	"time"
 
 	"github.com/jevans40/Ruthenium/component"
+	"github.com/jevans40/Ruthenium/constants"
 	"github.com/jevans40/Ruthenium/ruthutil"
+	"github.com/jinzhu/copier"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -74,14 +77,23 @@ type simpleDispatcher struct {
 	//Mutex
 	entityWrite     sync.Mutex
 	entityProcessed sync.WaitGroup
+
+	t1    time.Time
+	t2    time.Time
+	t3    time.Time
+	dbgnm int
 }
 
 func NewSimpleDispatcher() Dispatcher {
 	return &simpleDispatcher{entities: make(map[component.EntityID]component.Entity),
-		errorChannel:    make(chan error),
-		entityCreations: make(chan EntityCreationData),
-		entityDeletions: make(chan component.EntityID),
-		running:         false}
+		errorChannel:    make(chan error, 100*constants.RACECHANNELSIZETEST),
+		entityCreations: make(chan EntityCreationData, 100*constants.RACECHANNELSIZETEST),
+		entityDeletions: make(chan component.EntityID, 100*constants.RACECHANNELSIZETEST),
+		running:         false,
+		t1:              time.UnixMilli(0),
+		t2:              time.UnixMilli(0),
+		t3:              time.UnixMilli(0),
+		dbgnm:           0}
 }
 
 func (d *simpleDispatcher) Maintain() error {
@@ -92,11 +104,11 @@ func (d *simpleDispatcher) Maintain() error {
 
 	d.entityProcessed.Add(2)
 	if ruthutil.IsChannelClosed(d.entityCreations) {
-		d.entityCreations = make(chan EntityCreationData)
+		d.entityCreations = make(chan EntityCreationData, 100*constants.RACECHANNELSIZETEST)
 	}
 
 	if ruthutil.IsChannelClosed(d.entityDeletions) {
-		d.entityDeletions = make(chan component.EntityID)
+		d.entityDeletions = make(chan component.EntityID, 100*constants.RACECHANNELSIZETEST)
 	}
 
 	go d.startEntityCreationService()
@@ -122,39 +134,55 @@ func (d *simpleDispatcher) Maintain() error {
 		return err
 	}
 	serviceOrder := newTree.GetSystemTree()
+
+	time1 := time.Now()
 	fmt.Println(serviceOrder)
 	for _, batch := range serviceOrder {
 		for i, s := range d.services {
+			time2 := time.Now()
 			for _, c := range batch {
 				if s.GetName() == c {
 					var toUpdate []component.ComponentStorage
 					for _, k := range resReq[i] {
 						for _, j := range d.storages {
 							if k.DataType == j.GetType() {
-								toUpdate = append(toUpdate, j)
+								switch v := j.(type) {
+								default:
+									fmt.Println(v)
+									newj := New(v)
+									fmt.Println(&newj)
+									fmt.Println(&j)
+									err := copier.Copy(newj, j)
+									_ = err
+									toUpdate = append(toUpdate, component.ComponentStorage(newj))
+								}
 							}
 						}
 					}
 					s.UpdateStoragePointers(toUpdate)
-					comChannels[i] <- updateSignal{d.entityCreations, d.entityDeletions}
-					fmt.Printf("sent for service %s \n", s.GetName())
+					go s.StartService(d.errorChannel, updateSignal{d.entityCreations, d.entityDeletions})
+					//fmt.Printf("sent for service %s \n", s.GetName())
 				}
 
 			}
+			d.t2 = d.t2.Add(time.Since(time2))
 		}
+		time3 := time.Now()
 		for i := 0; i < len(batch); i++ {
-			fmt.Println(len(batch))
-			fmt.Println(i)
+			//fmt.Println(len(batch))
+			//fmt.Println(i)
 			err, ok := <-d.errorChannel
-			log.Error(err)
+			//log.Error(err)
 			if !ok {
 				panic("error channel closed unexpectedly")
 			}
 			if err != nil {
-				log.Error(err)
+				//log.Error(err)
 			}
 		}
+		d.t3 = d.t3.Add(time.Since(time3))
 	}
+	d.t1 = d.t1.Add(time.Since(time1))
 
 	close(d.entityCreations)
 	close(d.entityDeletions)
@@ -176,7 +204,13 @@ func (d *simpleDispatcher) Maintain() error {
 	for _, i := range toRemove {
 		delete(d.entities, i)
 	}
-
+	if d.dbgnm%100 == 99 {
+		fmt.Printf("Dispatcher T1: %d, T2: %d, T3: %d\n", d.t1.UnixMilli()/100, d.t2.UnixMilli()/100, d.t3.UnixMilli()/100)
+		d.t1 = time.UnixMilli(0)
+		d.t2 = time.UnixMilli(0)
+		d.t3 = time.UnixMilli(0)
+	}
+	d.dbgnm++
 	return nil
 }
 
@@ -224,17 +258,19 @@ func (d *simpleDispatcher) RemoveStorage(thisType reflect.Type) error {
 }
 
 func (d *simpleDispatcher) StartServices() error {
-	if d.running {
-		return errors.New("service already running")
-	}
-	d.running = true
-	for _, s := range d.services {
-		go s.StartService(d.errorChannel)
-	}
-	//Ensure that all services are ready before moving on
-	for i := 0; i < len(d.services); i++ {
-		<-d.errorChannel
-	}
+	/*
+		if d.running {
+			return errors.New("service already running")
+		}
+		d.running = true
+		for _, s := range d.services {
+			go s.StartService(d.errorChannel)
+		}
+		//Ensure that all services are ready before moving on
+		for i := 0; i < len(d.services); i++ {
+			<-d.errorChannel
+		}
+	*/
 	return nil
 }
 
@@ -416,6 +452,11 @@ func (g *greedyAllocationTree) AddStystems(systems []string, resources [][]Compo
 func (g *greedyAllocationTree) GetSystemTree() [][]string {
 	var tree [][]string
 	return g.firstLevel.GetSystemTree(tree)
+}
+
+func New[T any](j T) T {
+	t := new(T)
+	return *t
 }
 
 /***************************/

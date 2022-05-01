@@ -4,6 +4,8 @@ import (
 	"errors"
 	"math"
 	"reflect"
+
+	"github.com/jinzhu/copier"
 )
 
 //Custom standard errors for future error handling
@@ -185,8 +187,20 @@ func Join(toJoin ...Joinable) (joinedSet []EntityID) {
 //This is not garenteed to work, and will panic if storage type does not implement ReadOnlyStorage
 func GetReadOnlyStorage[T Component](storage ComponentStorage) (ReadOnlyStorage[T], error) {
 	var toTest T
+	var newVStorage = VectorStorage[T]{}
+	var newDStorage = DenseStorage[T]{}
 	if storage.GetType() == reflect.TypeOf(toTest) {
-		return (storage).(ReadOnlyStorage[T]), nil
+		switch reflect.TypeOf(storage) {
+		case reflect.TypeOf(&newVStorage):
+			copier.Copy(&newVStorage, storage)
+			return ComponentStorage(&newVStorage).(ReadOnlyStorage[T]), nil
+		case reflect.TypeOf(&newDStorage):
+			copier.Copy(&newDStorage, storage)
+			return ComponentStorage(&newDStorage).(ReadOnlyStorage[T]), nil
+		default:
+
+			//fmt.Printf("%T\n", Type.GetTypeCode((*VectorStorage[T])))
+		}
 	}
 	return nil, errors.New("Type mismatch for given storage and function generic")
 }
