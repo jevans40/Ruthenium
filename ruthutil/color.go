@@ -8,5 +8,5 @@ type Color struct {
 }
 
 func NewColor(red uint8, green uint8, blue uint8, alpha uint8) Color {
-	return Color{red, green, blue, alpha}
+	return Color{alpha, blue, green, red}
 }
