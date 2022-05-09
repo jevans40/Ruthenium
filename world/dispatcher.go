@@ -10,7 +10,6 @@ import (
 	"github.com/jevans40/Ruthenium/component"
 	"github.com/jevans40/Ruthenium/constants"
 	"github.com/jevans40/Ruthenium/ruthutil"
-	"github.com/jinzhu/copier"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -68,6 +67,7 @@ type simpleDispatcher struct {
 	storages         []component.ComponentStorage
 	services         []Service
 	serviceCallbacks []chan updateSignal
+	toDelete         []component.EntityID
 
 	//Channels
 	errorChannel    chan error
@@ -136,7 +136,7 @@ func (d *simpleDispatcher) Maintain() error {
 	serviceOrder := newTree.GetSystemTree()
 
 	time1 := time.Now()
-	fmt.Println(serviceOrder)
+	//fmt.Println(serviceOrder)
 	for _, batch := range serviceOrder {
 		for i, s := range d.services {
 			time2 := time.Now()
@@ -146,16 +146,7 @@ func (d *simpleDispatcher) Maintain() error {
 					for _, k := range resReq[i] {
 						for _, j := range d.storages {
 							if k.DataType == j.GetType() {
-								switch v := j.(type) {
-								default:
-									fmt.Println(v)
-									newj := New(v)
-									fmt.Println(&newj)
-									fmt.Println(&j)
-									err := copier.Copy(newj, j)
-									_ = err
-									toUpdate = append(toUpdate, component.ComponentStorage(newj))
-								}
+								toUpdate = append(toUpdate, j)
 							}
 						}
 					}
@@ -190,20 +181,21 @@ func (d *simpleDispatcher) Maintain() error {
 
 	//TODO: Optimization: So this should be reformatted to create a smarter deletion process. This is a time consuming part of the update loop,
 	//But this is the first thing I thought of.
-	var toRemove []component.EntityID
-	for i, entity := range d.entities {
-		if entity.Deleted == true {
+	//var toRemove []component.EntityID
+	//for i, entity := range d.entities {
+	//	if entity.Deleted {
 
-			for _, storage := range d.storages {
-				storage.DeleteEntity(entity.EntityNum)
-			}
-			toRemove = append(toRemove, i)
-		}
-	}
+	//		for _, storage := range d.storages {
+	//			storage.DeleteEntity(entity.EntityNum)
+	//		}
+	//		toRemove = append(toRemove, i)
+	//	}
+	//}
 
-	for _, i := range toRemove {
+	for _, i := range d.toDelete {
 		delete(d.entities, i)
 	}
+	d.toDelete = []component.EntityID{}
 	if d.dbgnm%100 == 99 {
 		fmt.Printf("Dispatcher T1: %d, T2: %d, T3: %d\n", d.t1.UnixMilli()/100, d.t2.UnixMilli()/100, d.t3.UnixMilli()/100)
 		d.t1 = time.UnixMilli(0)
@@ -343,6 +335,7 @@ func (d *simpleDispatcher) startEntityDeletionService() {
 	d.entityWrite.Lock()
 	for _, v := range toDelete {
 		d.entities[v] = component.Entity{d.entities[v].EntityNum, true}
+		d.toDelete = append(d.toDelete, v)
 	}
 	d.entityWrite.Unlock()
 	d.entityProcessed.Done()
@@ -452,11 +445,6 @@ func (g *greedyAllocationTree) AddStystems(systems []string, resources [][]Compo
 func (g *greedyAllocationTree) GetSystemTree() [][]string {
 	var tree [][]string
 	return g.firstLevel.GetSystemTree(tree)
-}
-
-func New[T any](j T) T {
-	t := new(T)
-	return *t
 }
 
 /***************************/

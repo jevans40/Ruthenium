@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"sync"
 )
 
 var _ ComponentStorage = &VectorStorage[BaseComponent]{}
@@ -22,21 +23,38 @@ type VectorStorage[T Component] struct {
 	//Check if the value is allocated
 	allocated []bool
 	numStored int
+	RWLOCK    sync.RWMutex
 }
 
 //Create a new Dense Storage containing types T.
 //Returns a ComponentStorage interface
 func NewVectorStorage[T Component]() ComponentStorage {
-	return &VectorStorage[T]{internalVector: []T{}}
+	return &VectorStorage[T]{internalVector: []T{}, RWLOCK: sync.RWMutex{}}
 }
 
 //Returns the type of the contained storage
 func (ve *VectorStorage[T]) GetType() reflect.Type {
+	ve.RWLOCK.RLock()
+	defer ve.RWLOCK.RUnlock()
 	return reflect.TypeOf(ve.internalVector).Elem()
 }
 
+//func (ve *VectorStorage[T]) GetData() []Component {
+//	var newArray := make()
+//}
+
 //Returns true if the entitity is stored in the internal map
 func (ve *VectorStorage[T]) Exists(Entity EntityID) bool {
+	ve.RWLOCK.RLock()
+	defer ve.RWLOCK.RUnlock()
+	if Entity < 0 || int(Entity) >= len(ve.internalVector) {
+		return false
+	}
+	return ve.allocated[Entity]
+}
+
+//Returns true if the entitity is stored in the internal map
+func (ve *VectorStorage[T]) exists(Entity EntityID) bool {
 	if Entity < 0 || int(Entity) >= len(ve.internalVector) {
 		return false
 	}
@@ -45,19 +63,23 @@ func (ve *VectorStorage[T]) Exists(Entity EntityID) bool {
 
 //Returns a mask of the entities that exist in this storage
 func (ve *VectorStorage[T]) ExistsMultiple(Entities []EntityID) []bool {
+	ve.RWLOCK.RLock()
+	defer ve.RWLOCK.RUnlock()
 	toReturn := []bool{}
 	for _, v := range Entities {
-		toReturn = append(toReturn, ve.Exists(v))
+		toReturn = append(toReturn, ve.exists(v))
 	}
 	return toReturn
 }
 
 //Return all stored entities in this storage
 func (ve *VectorStorage[T]) GetEntities() []EntityID {
-	toReturn := []EntityID{}
+	ve.RWLOCK.RLock()
+	defer ve.RWLOCK.RUnlock()
+	toReturn := make([]EntityID, ve.numStored)
 	for i, k := range ve.allocated {
 		if k {
-			toReturn = append(toReturn, EntityID(i))
+			toReturn[i] = EntityID(i)
 		}
 	}
 	return toReturn
@@ -65,13 +87,17 @@ func (ve *VectorStorage[T]) GetEntities() []EntityID {
 
 //Returns the number of components stored in this storage
 func (ve *VectorStorage[T]) GetSize() int {
+	ve.RWLOCK.RLock()
+	defer ve.RWLOCK.RUnlock()
 	return ve.numStored
 }
 
 //Adds a new empty component to this storage
 //TODO: Might want to use allocation maps
 func (ve *VectorStorage[T]) AddBlankComponent(Entity EntityID) error {
-	if ve.Exists(Entity) {
+	ve.RWLOCK.Lock()
+	defer ve.RWLOCK.Unlock()
+	if ve.exists(Entity) {
 		return OneOrMoreEntitiesAlreadyExists
 	}
 
@@ -93,8 +119,10 @@ func (ve *VectorStorage[T]) AddBlankComponent(Entity EntityID) error {
 //If an error is returned no entities are added to the storage
 //This will panic if entityID is listed multiple times
 func (ve *VectorStorage[T]) AddBlankComponentMultiple(Entity []EntityID) error {
+	ve.RWLOCK.Lock()
+	defer ve.RWLOCK.Unlock()
 	for _, e := range Entity {
-		if ve.Exists(e) {
+		if ve.exists(e) {
 			return OneOrMoreEntitiesAlreadyExists
 		}
 	}
@@ -116,8 +144,10 @@ func (ve *VectorStorage[T]) AddBlankComponentMultiple(Entity []EntityID) error {
 //This should only be called by the manager of the ComponentStorage.
 //This function returns an error if any of the entities in the list do not exist in the vector.
 func (ve *VectorStorage[T]) DeleteEntityMultiple(Entities []EntityID) error {
+	ve.RWLOCK.Lock()
+	defer ve.RWLOCK.Unlock()
 	for _, e := range Entities {
-		if !ve.Exists(e) {
+		if !ve.exists(e) {
 			return EntityNotFoundError
 		}
 	}
@@ -135,6 +165,8 @@ func (ve *VectorStorage[T]) DeleteEntityMultiple(Entities []EntityID) error {
 //The singlecase version of DeleteEntities Multiple
 //TODO: Should be avoided for now until fixed
 func (ve *VectorStorage[T]) DeleteEntity(entity EntityID) error {
+	ve.RWLOCK.Lock()
+	defer ve.RWLOCK.Unlock()
 	return ve.DeleteEntityMultiple([]EntityID{entity})
 }
 
@@ -142,7 +174,19 @@ func (ve *VectorStorage[T]) DeleteEntity(entity EntityID) error {
 //Note: This will panic if it cannot find the given entityID
 //Call GetComponent if you want to just receive an error
 func (ve *VectorStorage[T]) MustGetComponent(entity EntityID) T {
-	if ve.Exists(entity) {
+	ve.RWLOCK.RLock()
+	defer ve.RWLOCK.RUnlock()
+	if ve.exists(entity) {
+		return ve.internalVector[entity]
+	}
+	panic(EntityNotFoundError)
+}
+
+//Returns struct copies of entities from the storage
+//Note: This will panic if it cannot find the given entityID
+//Call GetComponent if you want to just receive an error
+func (ve *VectorStorage[T]) mustGetComponent(entity EntityID) T {
+	if ve.exists(entity) {
 		return ve.internalVector[entity]
 	}
 	panic(EntityNotFoundError)
@@ -150,9 +194,11 @@ func (ve *VectorStorage[T]) MustGetComponent(entity EntityID) T {
 
 //Calls MustGetComponent on all entities listed
 func (ve *VectorStorage[T]) MustGetComponentMultiple(entities []EntityID) []T {
+	ve.RWLOCK.RLock()
+	defer ve.RWLOCK.RUnlock()
 	returnArray := []T{}
 	for _, v := range entities {
-		k := ve.MustGetComponent(v)
+		k := ve.mustGetComponent(v)
 		returnArray = append(returnArray, k)
 	}
 	return returnArray
@@ -160,8 +206,10 @@ func (ve *VectorStorage[T]) MustGetComponentMultiple(entities []EntityID) []T {
 
 //Calls GetComponent on all entities listed
 func (ve *VectorStorage[T]) GetComponent(entity EntityID) (T, error) {
+	ve.RWLOCK.RLock()
+	defer ve.RWLOCK.RUnlock()
 
-	if ve.Exists(entity) {
+	if ve.exists(entity) {
 		return ve.internalVector[entity], nil
 	}
 
@@ -169,24 +217,39 @@ func (ve *VectorStorage[T]) GetComponent(entity EntityID) (T, error) {
 	return errorFound, EntityNotFoundError
 }
 
+//Calls GetComponent on all entities listed
+func (ve *VectorStorage[T]) getComponent(entity EntityID) (*T, error) {
+
+	if ve.exists(entity) {
+		return &(ve.internalVector[entity]), nil
+	}
+
+	var errorFound T
+	return &errorFound, EntityNotFoundError
+}
+
 //Returns struct copies of the requested entities from storage
-func (ve *VectorStorage[T]) GetComponentMultiple(entities []EntityID) ([]T, error) {
-	returnArray := []T{}
+func (ve *VectorStorage[T]) GetComponentMultiple(entities []EntityID) ([]*T, error) {
+	ve.RWLOCK.RLock()
+	defer ve.RWLOCK.RUnlock()
+	returnArray := make([]*T, len(entities))
 	err2 := error(nil)
-	for _, v := range entities {
-		k, err := ve.GetComponent(v)
+	for i, _ := range entities {
+		k, err := ve.getComponent(entities[i])
 		if err != nil {
 			err2 = err
 		}
-		returnArray = append(returnArray, k)
+		returnArray[i] = k
 	}
 	return returnArray, err2
 }
 
 //Writes Data to the specified entityID
 func (ve *VectorStorage[T]) Write(entity EntityID, data T) error {
+	ve.RWLOCK.Lock()
+	defer ve.RWLOCK.Unlock()
 
-	if ve.Exists(entity) {
+	if ve.exists(entity) {
 		ve.internalVector[entity] = data
 		return nil
 	}
@@ -194,19 +257,21 @@ func (ve *VectorStorage[T]) Write(entity EntityID, data T) error {
 }
 
 //Writes Data[i] to each EntityID[i]
-func (ve *VectorStorage[T]) WriteMultiple(entities []EntityID, data []T) error {
+func (ve *VectorStorage[T]) WriteMultiple(entities []EntityID, data []*T) error {
+	ve.RWLOCK.Lock()
+	defer ve.RWLOCK.Unlock()
 	if len(entities) != len(data) {
 		return errors.New("Length mismatch between entities data")
 	}
 
 	for _, e := range entities {
-		if !ve.Exists(e) {
+		if !ve.exists(e) {
 			return EntityNotFoundError
 		}
 	}
 
 	for i, e := range entities {
-		ve.internalVector[e] = data[i]
+		ve.internalVector[e] = *data[i]
 	}
 	return nil
 
@@ -214,8 +279,10 @@ func (ve *VectorStorage[T]) WriteMultiple(entities []EntityID, data []T) error {
 
 //Appends an component to the end of the list
 func (ve *VectorStorage[T]) AddEntity(entity EntityID, component T) error {
+	ve.RWLOCK.Lock()
+	defer ve.RWLOCK.Unlock()
 
-	if ve.Exists(entity) {
+	if ve.exists(entity) {
 		return OneOrMoreEntitiesAlreadyExists
 	}
 
@@ -234,10 +301,14 @@ func (ve *VectorStorage[T]) AddEntity(entity EntityID, component T) error {
 //Appends components to the end of the list
 //This will panic if the same entityID is listed multiple times
 func (ve *VectorStorage[T]) AddEntityMultiple(Entitylist []EntityID, Components []T) error {
+	ve.RWLOCK.RLock()
+	defer ve.RWLOCK.RUnlock()
+
 	if len(Entitylist) != len(Components) {
 		return errors.New(fmt.Sprintf("Length of entity list must equal length of components %d != %d", len(Entitylist), len(Components)))
 	}
 	max := 0
+
 	for _, e := range Entitylist {
 		if int(e) > max {
 			max = int(e)

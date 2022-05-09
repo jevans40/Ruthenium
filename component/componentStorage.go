@@ -83,7 +83,7 @@ type ReadOnlyStorage[T Component] interface {
 	GetComponent(entitityID EntityID) (T, error)
 
 	//Calls GetComponent on all entities listed
-	GetComponentMultiple(entities []EntityID) ([]T, error)
+	GetComponentMultiple(entities []EntityID) ([]*T, error)
 }
 
 type WriteStorage[T Component] interface {
@@ -103,7 +103,7 @@ type WriteStorage[T Component] interface {
 	Write(entityID EntityID, data T) error
 
 	//Writes Data[i] to each EntityID[i]
-	WriteMultiple(entityIDs []EntityID, data []T) error
+	WriteMultiple(entityIDs []EntityID, data []*T) error
 
 	//Returns struct copies of entities from the storage
 	//Note: This will panic if it cannot find the given entityID
@@ -117,7 +117,7 @@ type WriteStorage[T Component] interface {
 	GetComponent(entitityID EntityID) (T, error)
 
 	//Calls GetComponent on all entities listed
-	GetComponentMultiple(entities []EntityID) ([]T, error)
+	GetComponentMultiple(entities []EntityID) ([]*T, error)
 
 	//Adds a new empty component to the storage immediately.
 	//Optimization: This should ideally not be called if possible from services
@@ -196,7 +196,7 @@ func GetReadOnlyStorage[T Component](storage ComponentStorage) (ReadOnlyStorage[
 			return ComponentStorage(&newVStorage).(ReadOnlyStorage[T]), nil
 		case reflect.TypeOf(&newDStorage):
 			copier.Copy(&newDStorage, storage)
-			return ComponentStorage(&newDStorage).(ReadOnlyStorage[T]), nil
+			return ComponentStorage(storage).(ReadOnlyStorage[T]), nil
 		default:
 
 			//fmt.Printf("%T\n", Type.GetTypeCode((*VectorStorage[T])))
@@ -209,7 +209,17 @@ func GetReadOnlyStorage[T Component](storage ComponentStorage) (ReadOnlyStorage[
 //This is not garenteed to work, and will panic if storage type does not implement WriteStorage
 func GetWriteStorage[T Component](storage ComponentStorage) (WriteStorage[T], error) {
 	var toTest T
+	var newVStorage = VectorStorage[T]{}
+	var NewDenseStorage = DenseStorage[T]{}
 	if storage.GetType() == reflect.TypeOf(toTest) {
+		switch reflect.TypeOf(storage) {
+		case reflect.TypeOf(&newVStorage):
+			copier.Copy(&newVStorage, storage)
+			return ComponentStorage(storage).(WriteStorage[T]), nil
+		case reflect.TypeOf(&NewDenseStorage):
+			copier.Copy(&NewDenseStorage, storage)
+			return ComponentStorage(storage).(WriteStorage[T]), nil
+		}
 		return (storage).(WriteStorage[T]), nil
 	}
 	return nil, errors.New("Type mismatch for given storage and function generic")

@@ -152,15 +152,15 @@ func (d *DenseStorage[T]) GetComponent(entity EntityID) (T, error) {
 }
 
 //Returns struct copies of the requested entities from storage
-func (d *DenseStorage[T]) GetComponentMultiple(entities []EntityID) ([]T, error) {
-	returnArray := []T{}
+func (d *DenseStorage[T]) GetComponentMultiple(entities []EntityID) ([]*T, error) {
+	returnArray := []*T{}
 	err2 := error(nil)
 	for _, v := range entities {
 		k, err := d.GetComponent(v)
 		if err != nil {
 			err2 = err
 		}
-		returnArray = append(returnArray, k)
+		returnArray = append(returnArray, &k)
 	}
 	return returnArray, err2
 }
@@ -175,7 +175,7 @@ func (d *DenseStorage[T]) Write(entity EntityID, data T) error {
 }
 
 //Writes Data[i] to each EntityID[i]
-func (d *DenseStorage[T]) WriteMultiple(entities []EntityID, data []T) error {
+func (d *DenseStorage[T]) WriteMultiple(entities []EntityID, data []*T) error {
 	if len(entities) != len(data) {
 		return errors.New("Length mismatch between entities data")
 	}
@@ -187,7 +187,7 @@ func (d *DenseStorage[T]) WriteMultiple(entities []EntityID, data []T) error {
 	}
 
 	for i, e := range entities {
-		d.component[d.internalMap[e]] = data[i]
+		d.component[d.internalMap[e]] = *data[i]
 	}
 	return nil
 

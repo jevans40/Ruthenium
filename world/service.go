@@ -12,6 +12,11 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+//TODO: Service needs to be broken into [Service Handler] -> [Service] Instead of just having a run function
+//Service handler will handle syncronization and getting resources from dispatcher
+//Service will only handle running the service. It will have a single callable function:
+//Run(EntityCreation chan EntityCreationData, EntityDeletion chan component.EntityID) error
+
 //TODO: All of these need to be placed somewhere else. Putting them in the header of the service was a temporary
 //work around, but now that other classes are using this we need to move them to a reasonable spot.
 
@@ -155,6 +160,8 @@ type BaseService struct {
 //         		  channel buffer is too small to fit all the requested entities
 //				  Form (NumEntities to make, Channel to receive entity ID's from later)
 //EntityDeletion: signals on this channel will tell the dispatcher to lazily delete requested entities
+
+//TODO:: This should loop and possibly be synced with a WorkGroup.
 func (s *BaseService) StartService(Callback chan error, update updateSignal) {
 	s.GetChannel()
 	//fmt.Printf("got a signal for service %s\n", s.Name)
@@ -211,7 +218,7 @@ func (s *BaseService) UpdateStoragePointers(data []component.ComponentStorage) e
 		tofind := v.DataType
 		found := false
 		for _, t := range data {
-			fmt.Println(&t)
+			//fmt.Println(&t)
 			if t.GetType() == tofind {
 				s.dataPointers[i] = t
 				found = true
