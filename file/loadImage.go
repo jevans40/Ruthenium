@@ -10,6 +10,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+//TODO:: Documentation
+
 type notOpaqueRGBA struct {
 	*image.RGBA
 }

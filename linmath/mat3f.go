@@ -1,5 +1,7 @@
 package linmath
 
+//TODO:: Documentation
+
 type Mat3f[T float32 | float64] Mat3[T]
 
 func Mat3fFactory[T float32 | float64]() Mat3f[T] {

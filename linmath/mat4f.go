@@ -1,5 +1,7 @@
 package linmath
 
+//TODO:: Documentation
+
 //Matrix4f Base Matrix object, can just print what it holds
 type Matrix4f interface {
 	ToFloats() [16]float32
@@ -21,3 +23,5 @@ func NewOrthoMat4f(bottom, top, left, right, near, far float32) Matrix4f {
 func (thisMat *orthoMat4f) ToFloats() [16]float32 {
 	return *thisMat
 }
+
+//TODO:: Other matrix types

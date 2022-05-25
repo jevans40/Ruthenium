@@ -5,6 +5,9 @@ import (
 	"unsafe"
 )
 
+//TODO:: Documentation
+//TODO:: Tests
+
 //This file contains the default interface for vertice
 
 //Vertice interface, all things that are rendered should go through this

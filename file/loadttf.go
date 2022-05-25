@@ -11,6 +11,9 @@ import (
 	"golang.org/x/image/math/fixed"
 )
 
+//TODO:: Documentation
+//TODO:: Find a way to make this work on multiple threads
+
 type PSFont struct {
 	face     font.Face
 	location fixed.Point26_6

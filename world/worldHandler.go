@@ -5,6 +5,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+//TODO:: Documentation
+//TODO:: Tests
 type TickChannelCommunication int
 
 const (
@@ -22,6 +24,10 @@ type WorldHandler struct {
 
 func (w *WorldHandler) RegisterWorld(world World) {
 	w.world = world
+}
+
+func (w *WorldHandler) GetWorldName() string {
+	return w.world.GetName()
 }
 
 func (w *WorldHandler) StartHandler(tickChannel chan TickChannelCommunication) {

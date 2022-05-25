@@ -1,5 +1,7 @@
 package linmath
 
+//TODO:: Documentation
+
 //This file contains the default interface for vertice
 
 //Vertice interface, all things that are rendered should go through this

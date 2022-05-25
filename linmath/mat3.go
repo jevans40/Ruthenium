@@ -1,5 +1,7 @@
 package linmath
 
+//TODO:: Documentation
+
 type Mat3[T Numeric] [9]T
 
 //Returns a new Identiy matrix

@@ -1,5 +1,7 @@
 package ruthutil
 
+//TODO:: Documentation
+//TODO:: Tests
 type Color struct {
 	Red   uint8
 	Green uint8

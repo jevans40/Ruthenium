@@ -4,6 +4,9 @@ import (
 	"github.com/go-gl/glfw/v3.3/glfw"
 )
 
+//TODO:: Tests
+//TODO:: Refactor
+
 // GoWindow the struct that holds glfw window information
 type GoWindow struct {
 	lWindow *glfw.Window

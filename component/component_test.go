@@ -7,6 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+//TODO:: test documentation
+
 type testComponent struct {
 	value int
 }

@@ -5,6 +5,8 @@ import (
 	"github.com/jevans40/Ruthenium/world"
 )
 
+//TODO:: Documentation
+
 type EntityBuilder struct {
 	data             []world.StorageWriteable
 	numberOfEntities int

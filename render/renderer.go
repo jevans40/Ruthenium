@@ -5,6 +5,8 @@ import (
 	"github.com/jevans40/Ruthenium/linmath"
 )
 
+//TODO:: Posible duplicate renderer? Might not be needed at this point
+
 //Renderer Is a interface for all render types, they have one job, given a window size, render shit
 type Renderer interface {
 	Render(Width, Height int32)

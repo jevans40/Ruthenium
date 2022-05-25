@@ -11,11 +11,14 @@ import (
 //Custom standard errors for future error handling
 type entityNotFound string
 type oneOrMoreEntitiesAlreadyExists string
+type notEntityStorage string
 
 func (e entityNotFound) Error() string                 { return string(e) }
 func (e oneOrMoreEntitiesAlreadyExists) Error() string { return string(e) }
+func (e notEntityStorage) Error() string               { return string(e) }
 
 const EntityNotFoundError = entityNotFound("EntityNotFound")
+const NotEntityStorageError = entityNotFound("NotEntityStorage")
 const OneOrMoreEntitiesAlreadyExists = oneOrMoreEntitiesAlreadyExists("OneOrMoreEntitiesAlreadyExists")
 
 //A component storage should only store one type and should always
@@ -189,6 +192,7 @@ func GetReadOnlyStorage[T Component](storage ComponentStorage) (ReadOnlyStorage[
 	var toTest T
 	var newVStorage = VectorStorage[T]{}
 	var newDStorage = DenseStorage[T]{}
+	var newRStorage = ResourceStorage[T]{}
 	if storage.GetType() == reflect.TypeOf(toTest) {
 		switch reflect.TypeOf(storage) {
 		case reflect.TypeOf(&newVStorage):
@@ -196,7 +200,10 @@ func GetReadOnlyStorage[T Component](storage ComponentStorage) (ReadOnlyStorage[
 			return ComponentStorage(&newVStorage).(ReadOnlyStorage[T]), nil
 		case reflect.TypeOf(&newDStorage):
 			copier.Copy(&newDStorage, storage)
-			return ComponentStorage(storage).(ReadOnlyStorage[T]), nil
+			return ComponentStorage(&newDStorage).(ReadOnlyStorage[T]), nil
+		case reflect.TypeOf(&newRStorage):
+			copier.Copy(&newRStorage, storage)
+			return ComponentStorage(&newRStorage).(ReadOnlyStorage[T]), nil
 		default:
 
 			//fmt.Printf("%T\n", Type.GetTypeCode((*VectorStorage[T])))
@@ -214,10 +221,10 @@ func GetWriteStorage[T Component](storage ComponentStorage) (WriteStorage[T], er
 	if storage.GetType() == reflect.TypeOf(toTest) {
 		switch reflect.TypeOf(storage) {
 		case reflect.TypeOf(&newVStorage):
-			copier.Copy(&newVStorage, storage)
+			//copier.Copy(&newVStorage, storage)
 			return ComponentStorage(storage).(WriteStorage[T]), nil
 		case reflect.TypeOf(&NewDenseStorage):
-			copier.Copy(&NewDenseStorage, storage)
+			//copier.Copy(&NewDenseStorage, storage)
 			return ComponentStorage(storage).(WriteStorage[T]), nil
 		}
 		return (storage).(WriteStorage[T]), nil

@@ -3,6 +3,7 @@ package linmath
 import "testing"
 
 //Tests for mat4f.go
+//TODO:: More tests
 func TestNewOrthoMat4f(t *testing.T) {
 	TestOrthoCon := NewOrthoMat4f(1, 0, 0, 1, 1, 0)
 	TestOrthoNeg := NewOrthoMat4f(-1, -0, -0, -1, -1, -0)

@@ -1,5 +1,7 @@
 package render
 
+//TODO:: Documentation
+
 type ElementBuffer struct {
 	elementarray []uint32
 }

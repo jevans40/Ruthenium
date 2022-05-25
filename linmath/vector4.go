@@ -1,5 +1,8 @@
 package linmath
 
+//TODO:: Documentation
+
+//TODO:: Update with generics
 //Vector4 Default interface to export struct information
 type Vector4 interface {
 	GetX() float32

@@ -28,10 +28,10 @@ type Game interface {
 	Start()
 
 	//Add a world layer to the layerspace.
-	AddWorld(*world.WorldHandler) (worldID int, err error)
+	AddWorld(w world.World) error
 
 	//Remove a layer from the layerspace.
-	RemoveWorld(worldID int) error
+	RemoveWorld(worldName string) error
 
 	//Returns the game render channel
 	GetRenderChannel() chan []float32
@@ -54,17 +54,24 @@ func (g *gameECS) Init() error {
 	return nil
 }
 
-func (g *gameECS) AddWorld(world *world.WorldHandler) (worldID int, err error) {
-	g.worlds = append(g.worlds, world)
-	return len(g.worlds), nil
+func (g *gameECS) AddWorld(w world.World) (err error) {
+	newHandler := world.WorldHandler{}
+	newHandler.RegisterWorld(w)
+	g.worlds = append(g.worlds, &newHandler)
+	return nil
 }
 
 //TODO: This is all sorts of wrong, it should pop worlds associated with a given ID,
 //But here it pops the world at position ID.
 //Fix later, not important until production but for now its kinda important.
-func (g *gameECS) RemoveWorld(worldID int) error {
-	g.worlds = append(g.worlds[:worldID], g.worlds[worldID+1:]...)
-	return nil
+func (g *gameECS) RemoveWorld(worldName string) error {
+	for i := range g.worlds {
+		if g.worlds[i].GetWorldName() == worldName {
+			g.worlds = append(g.worlds[:i], g.worlds[i+1:]...)
+			return nil
+		}
+	}
+	return fmt.Errorf("world not found")
 }
 
 func (g *gameECS) Start() {
@@ -83,6 +90,7 @@ func (g *gameECS) Start() {
 	}
 	g.window = window
 	go g.render()
+	go g.update()
 
 	g.EventLoop()
 }
@@ -95,8 +103,10 @@ func (g *gameECS) GetRenderChannel() chan []float32 {
 //NOTE: possibly move this to the systems category.
 
 func (g *gameECS) render() {
-	//Old vs new buffer
+	//TODO:: This should connect to render vertice goroutines and read directly from there and merge.
+	//No need to be calculating vertices for an already updated frame
 
+	//Old vs new buffer
 	//THIS HAS TO BE IN THE SAME THREAD AS THE OTHER RENDERING
 	//Initialize open-gl
 	runtime.LockOSThread()
@@ -160,6 +170,6 @@ func (g *gameECS) EventLoop() {
 	}
 }
 
-func (g *gameECS) Update() {
+func (g *gameECS) update() {
 
 }

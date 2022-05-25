@@ -2,6 +2,9 @@ package linmath
 
 import "errors"
 
+//TODO:: Refactor?
+//TODO:: I dont know where this is used pls help
+
 //A simple distance matrix with custom id rows and columns.
 //The matrix is reflexive so GetDistance(i,j) == GetDistance(j,i)
 type DistanceMatrixInt interface {

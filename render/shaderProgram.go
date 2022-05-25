@@ -7,6 +7,10 @@ import (
 	"github.com/go-gl/gl/v4.1-core/gl"
 )
 
+//TODO:: Documentation
+//TODO:: Refactor
+//TODO:: Tests?
+
 //CompileShader compiles a given shader program
 func CompileShader(source string, shaderType uint32) (uint32, error) {
 	shader := gl.CreateShader(shaderType)

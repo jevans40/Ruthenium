@@ -10,6 +10,9 @@ import (
 	"github.com/jevans40/Ruthenium/linmath"
 )
 
+//TODO:: Documentation
+//TODO:: Tests
+
 type renderService struct {
 	BaseService
 	renderChan chan []float32
@@ -84,6 +87,9 @@ func (r *renderService) RenderRun(EntityCreation chan EntityCreationData, Entity
 }
 
 func calculateVerticesWorker(dbg int, num int, Renderables []*Renderable, RenderVec []float32, wait *sync.WaitGroup) {
+	//TODO:: This should connect to renderer and submit to it directly.
+	//No need to be calculating vertices for an already updated frame
+
 	//fmt.Printf("Worker %d started\n", dbg)
 	defer wait.Done()
 	for i := 0; i < num; i++ {

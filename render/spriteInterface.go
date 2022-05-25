@@ -1,5 +1,6 @@
 package render
 
+//TODO:: Concider documentation
 type Sprite interface {
 
 	//Mutators

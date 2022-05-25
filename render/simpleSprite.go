@@ -2,6 +2,10 @@ package render
 
 import "github.com/jevans40/Ruthenium/linmath"
 
+//TODO:: Documentation
+//TODO:: Refactor
+//TODO:: Tests
+
 var _ SpriteRendererSubscriber = (*simpleSprite)(nil)
 var _ Sprite = (*simpleSprite)(nil)
 

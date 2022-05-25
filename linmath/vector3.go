@@ -1,5 +1,8 @@
 package linmath
 
+//TODO:: Documentation
+//TODO:: Generics?
+
 //Vector3 Default interface to export struct information
 type Vector3 interface {
 	GetX() float32

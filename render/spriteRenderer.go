@@ -9,6 +9,9 @@ import (
 	"github.com/jevans40/Ruthenium/linmath"
 )
 
+//TODO:: Documentation
+//TODO:: Tests
+
 type SpriteRenderer struct {
 	vertexBufferObject  uint32
 	vertexArrayObject   uint32
@@ -103,6 +106,7 @@ func (thisRenderer *SpriteRenderer) Render(width, height int32) {
 	mat := orthomat.ToFloats()
 	gl.UniformMatrix4fv(loc, 1, false, &mat[0])
 	thisRenderer.bind()
+	//TODO:: gl.PtrOffset is depricated find out how to fix
 	gl.DrawElements(gl.TRIANGLES, 6*thisRenderer.numOfSprites, gl.UNSIGNED_INT, gl.PtrOffset(0)) // Starting from vertex 0; 3 vertices total -> 1 triangle
 	thisRenderer.unbind()
 

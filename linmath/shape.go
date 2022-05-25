@@ -1,5 +1,8 @@
 package linmath
 
+//TODO:: Refactor
+//TODO:: Concider deprication, this is only used currently for the atlas, mgiht need to be updated or removed
+
 type PSPoint interface {
 	X() int32
 	Y() int32

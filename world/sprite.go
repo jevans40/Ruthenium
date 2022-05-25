@@ -8,6 +8,7 @@ import (
 	"github.com/jevans40/Ruthenium/ruthutil"
 )
 
+//TODO: Documentation
 type Renderable struct {
 	X float64
 	Y float64
@@ -133,6 +134,7 @@ func (r Renderable) SetUntexturedSprite(color ruthutil.Color) Renderable {
 /////////////////////////////////////////////////////////////////
 //////////////////* To replace *////////////////////////////////
 ///////////////////////////////////////////////////////////////
+//TODO:: Depritcated
 type Coordinate [3]float64
 
 func (c Coordinate) TranslateY(Y float64) Coordinate {

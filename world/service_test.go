@@ -9,6 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+//TODO Fix tests
+
 type NewService struct {
 	*BaseService
 }

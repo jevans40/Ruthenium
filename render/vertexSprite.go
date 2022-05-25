@@ -1,5 +1,8 @@
 package render
 
+//TODO:: Documentation
+//TODO:: Refactor
+
 var _ SpriteRendererSubscriber = (*VertexRenderable)(nil)
 
 //A very simple renderable that the spriteRenderer can render, but has no real functionality

@@ -9,6 +9,8 @@ import (
 	"github.com/jevans40/Ruthenium/linmath"
 )
 
+//TODO:: more tests
+
 func TestLoadImageFromFile(t *testing.T) {
 	img1 := LoadImageFromFile("./../res/image/God2.png")
 	img2 := LoadImageFromFile("./../res/image/debt.PNG")

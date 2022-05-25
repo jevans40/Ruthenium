@@ -4,6 +4,8 @@ import (
 	"testing"
 )
 
+//TODO:: More tests
+
 func TestSpriteCreation(t *testing.T) {
 	/*
 		thisRender := SpriteRendererFactory()
